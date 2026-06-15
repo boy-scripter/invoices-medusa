@@ -20,6 +20,7 @@ export const generateInvoicePdfStep = createStep(
     const invoiceModuleService: InvoiceModuleService =
       container.resolve(INVOICE_MODULE)
     const orderModuleService = container.resolve(Modules.ORDER)
+    const promotionModuleService = container.resolve(Modules.PROMOTION)
     const query = container.resolve(ContainerRegistrationKeys.QUERY)
 
     const options = invoiceModuleService.getOptions()
@@ -67,6 +68,30 @@ export const generateInvoicePdfStep = createStep(
       order,
       orderWithRelations
     ) as unknown as OrderWithInvoices
+
+    const promotionIds = Array.from(
+      new Set(
+        (mergedOrder.items ?? [])
+          .flatMap((item) => (item as any).adjustments ?? [])
+          .map((adj: any) => adj.promotion_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+
+    if (promotionIds.length > 0) {
+      const promotions = await promotionModuleService.listPromotions(
+        {id: promotionIds},
+        {relations: ["application_method"]}
+      )
+      const promotionsById = new Map(promotions.map((p) => [p.id, p]))
+      for (const item of mergedOrder.items ?? []) {
+        for (const adj of ((item as any).adjustments ?? []) as any[]) {
+          if (adj.promotion_id && promotionsById.has(adj.promotion_id)) {
+            adj.promotion = promotionsById.get(adj.promotion_id)
+          }
+        }
+      }
+    }
 
     // Find the invoice to generate the PDF for. If invoice_id is passed we need to find that match, otherwise we need to
     // find the debit invoice.

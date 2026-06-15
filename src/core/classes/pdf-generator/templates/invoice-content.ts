@@ -439,18 +439,33 @@ const invoiceContent = async (
           ],
           ...(order.discount_total && Number(order.discount_total) > 0
             ? (() => {
-                const adjMap = new Map<string, number>()
+                const adjMap = new Map<
+                  string,
+                  {amount: number; percentage?: number}
+                >()
                 for (const item of order.items ?? []) {
-                  for (const adj of (item.adjustments ?? [])) {
+                  for (const adj of (item.adjustments ?? []) as any[]) {
                     if (adj.code) {
-                      adjMap.set(adj.code, (adjMap.get(adj.code) ?? 0) + Number(adj.amount))
+                      const existing = adjMap.get(adj.code) ?? {amount: 0}
+                      existing.amount += Number(adj.amount)
+                      if (
+                        existing.percentage === undefined &&
+                        adj.promotion?.application_method?.type === "percentage"
+                      ) {
+                        existing.percentage = Number(
+                          adj.promotion.application_method.value
+                        )
+                      }
+                      adjMap.set(adj.code, existing)
                     }
                   }
                 }
                 return adjMap.size > 0
-                  ? [...adjMap.entries()].map(([code, amount]) => [
+                  ? [...adjMap.entries()].map(([code, {amount, percentage}]) => [
                       {
-                        text: `${t.invoice.discount} (${code})`,
+                        text: `${t.invoice.discount} (${code}${
+                          percentage !== undefined ? ` - ${percentage}%` : ""
+                        })`,
                         bold: true,
                         border: false,
                         margin: [0, 2, 0, 5],
