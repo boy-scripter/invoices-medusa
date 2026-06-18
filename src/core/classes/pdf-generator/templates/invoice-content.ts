@@ -1,7 +1,7 @@
 import {Column, Content, TableCell} from "pdfmake/interfaces"
 import {getI18nMessages, resolveLocale} from "../../../../i18n"
 import formatLocaleAmount from "../../../../utils/format-locale-amount"
-import {InvoiceItemAdjustment, OrderWithInvoices} from "../index"
+import {OrderWithInvoices} from "../index"
 import {addDays, formatDate} from "date-fns"
 import {ModuleOptions} from "../../../../modules/invoice/service"
 
@@ -439,46 +439,44 @@ const invoiceContent = async (
           ],
           ...(order.discount_total && Number(order.discount_total) > 0
             ? (() => {
-                const adjMap = new Map<
-                  string,
-                  {amount: number; percentage?: number}
-                >()
+                const adjMap = new Map<string, number>()
                 for (const item of order.items ?? []) {
-                  for (const adj of (item.adjustments ??
-                    []) as InvoiceItemAdjustment[]) {
+                  for (const adj of item.adjustments ?? []) {
                     if (adj.code) {
-                      const existing = adjMap.get(adj.code) ?? {amount: 0}
-                      existing.amount += Number(adj.amount)
-                      if (
-                        existing.percentage === undefined &&
-                        adj.promotion?.application_method?.type === "percentage"
-                      ) {
-                        existing.percentage = Number(
-                          adj.promotion.application_method.value
-                        )
-                      }
-                      adjMap.set(adj.code, existing)
+                      adjMap.set(
+                        adj.code,
+                        (adjMap.get(adj.code) ?? 0) + Number(adj.amount)
+                      )
                     }
                   }
                 }
                 return adjMap.size > 0
-                  ? [...adjMap.entries()].map(([code, {amount, percentage}]) => [
-                      {
-                        text: `${t.invoice.discount} (${code}${
-                          percentage !== undefined ? ` - ${percentage}%` : ""
-                        })`,
-                        bold: true,
-                        border: false,
-                        margin: [0, 2, 0, 5],
-                      },
-                      {
-                        text: `- ${fmt(amount)}`,
-                        bold: true,
-                        border: false,
-                        alignment: "right",
-                        margin: [0, 2, 0, 5],
-                      },
-                    ])
+                  ? [...adjMap.entries()].map(([code, amount]) => {
+                      const promotion = order.promotions?.find(
+                        (p) => p.code === code
+                      )
+                      const percentage =
+                        promotion?.application_method?.type === "percentage"
+                          ? Number(promotion.application_method.value)
+                          : undefined
+                      return [
+                        {
+                          text: `${t.invoice.discount} (${code}${
+                            percentage !== undefined ? ` - ${percentage}%` : ""
+                          })`,
+                          bold: true,
+                          border: false,
+                          margin: [0, 2, 0, 5],
+                        },
+                        {
+                          text: `- ${fmt(amount)}`,
+                          bold: true,
+                          border: false,
+                          alignment: "right",
+                          margin: [0, 2, 0, 5],
+                        },
+                      ]
+                    })
                   : [[
                       {
                         text: t.invoice.discount,

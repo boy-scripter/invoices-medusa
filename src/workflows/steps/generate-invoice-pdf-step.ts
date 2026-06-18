@@ -1,8 +1,5 @@
 import {createStep, StepResponse} from "@medusajs/framework/workflows-sdk"
-import PdfGenerator, {
-  InvoiceItemAdjustment,
-  OrderWithInvoices,
-} from "../../core/classes/pdf-generator"
+import PdfGenerator, {OrderWithInvoices} from "../../core/classes/pdf-generator"
 import {INVOICE_MODULE} from "../../modules/invoice"
 import {
   ContainerRegistrationKeys,
@@ -49,6 +46,8 @@ export const generateInvoicePdfStep = createStep(
           "items.variant.inventory_items.inventory.*",
           "items.tax_lines.*",
           "items.adjustments.*",
+          "promotions.*",
+          "promotions.application_method.*",
           "shipping_methods.*",
           "shipping_methods.tax_lines.*",
           "invoices.*",
@@ -70,36 +69,6 @@ export const generateInvoicePdfStep = createStep(
       order,
       orderWithRelations
     ) as unknown as OrderWithInvoices
-
-    const promotionIds = Array.from(
-      new Set(
-        (mergedOrder.items ?? [])
-          .flatMap(
-            (item) =>
-              ((item as {adjustments?: InvoiceItemAdjustment[]}).adjustments ??
-                []) as InvoiceItemAdjustment[]
-          )
-          .map((adj) => adj.promotion_id)
-          .filter((id): id is string => Boolean(id))
-      )
-    )
-
-    if (promotionIds.length > 0) {
-      const promotionModuleService = container.resolve(Modules.PROMOTION)
-      const promotions = await promotionModuleService.listPromotions(
-        {id: promotionIds},
-        {relations: ["application_method"]}
-      )
-      const promotionsById = new Map(promotions.map((p) => [p.id, p]))
-      for (const item of mergedOrder.items ?? []) {
-        for (const adj of ((item as {adjustments?: InvoiceItemAdjustment[]})
-          .adjustments ?? []) as InvoiceItemAdjustment[]) {
-          if (adj.promotion_id && promotionsById.has(adj.promotion_id)) {
-            adj.promotion = promotionsById.get(adj.promotion_id)
-          }
-        }
-      }
-    }
 
     // Find the invoice to generate the PDF for. If invoice_id is passed we need to find that match, otherwise we need to
     // find the debit invoice.

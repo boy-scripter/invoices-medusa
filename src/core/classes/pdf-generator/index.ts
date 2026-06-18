@@ -1,12 +1,7 @@
 import pdfmake from "pdfmake"
 import packingSlipContent from "./templates/packing-slip-content"
 import base from "./templates/base"
-import {
-  OrderDTO,
-  OrderLineItemAdjustmentDTO,
-  PaymentCollectionDTO,
-  PromotionDTO,
-} from "@medusajs/types"
+import {OrderDTO, PaymentCollectionDTO, PromotionDTO} from "@medusajs/types"
 import invoiceContent from "./templates/invoice-content"
 import {InvoiceDTO} from "../../../types"
 import {ModuleOptions} from "../../../modules/invoice/service"
@@ -23,11 +18,7 @@ pdfmake.addFonts({
 
 export type OrderWithInvoices = OrderDTO & {invoices: InvoiceDTO[]} & {
   payment_collections: PaymentCollectionDTO[]
-}
-
-export type InvoiceItemAdjustment = OrderLineItemAdjustmentDTO & {
-  promotion?: PromotionDTO
-}
+} & {promotions: PromotionDTO[]}
 
 export default class PdfGenerator {
 
