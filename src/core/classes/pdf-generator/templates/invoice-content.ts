@@ -441,28 +441,42 @@ const invoiceContent = async (
             ? (() => {
                 const adjMap = new Map<string, number>()
                 for (const item of order.items ?? []) {
-                  for (const adj of (item.adjustments ?? [])) {
+                  for (const adj of item.adjustments ?? []) {
                     if (adj.code) {
-                      adjMap.set(adj.code, (adjMap.get(adj.code) ?? 0) + Number(adj.amount))
+                      adjMap.set(
+                        adj.code,
+                        (adjMap.get(adj.code) ?? 0) + Number(adj.amount)
+                      )
                     }
                   }
                 }
                 return adjMap.size > 0
-                  ? [...adjMap.entries()].map(([code, amount]) => [
-                      {
-                        text: `${t.invoice.discount} (${code})`,
-                        bold: true,
-                        border: false,
-                        margin: [0, 2, 0, 5],
-                      },
-                      {
-                        text: `- ${fmt(amount)}`,
-                        bold: true,
-                        border: false,
-                        alignment: "right",
-                        margin: [0, 2, 0, 5],
-                      },
-                    ])
+                  ? [...adjMap.entries()].map(([code, amount]) => {
+                      const promotion = order.promotions?.find(
+                        (p) => p.code === code
+                      )
+                      const percentage =
+                        promotion?.application_method?.type === "percentage"
+                          ? Number(promotion.application_method.value)
+                          : undefined
+                      return [
+                        {
+                          text: `${t.invoice.discount} (${code}${
+                            percentage !== undefined ? ` - ${percentage}%` : ""
+                          })`,
+                          bold: true,
+                          border: false,
+                          margin: [0, 2, 0, 5],
+                        },
+                        {
+                          text: `- ${fmt(amount)}`,
+                          bold: true,
+                          border: false,
+                          alignment: "right",
+                          margin: [0, 2, 0, 5],
+                        },
+                      ]
+                    })
                   : [[
                       {
                         text: t.invoice.discount,
