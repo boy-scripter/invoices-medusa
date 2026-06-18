@@ -1,7 +1,7 @@
 import {Column, Content, TableCell} from "pdfmake/interfaces"
 import {getI18nMessages, resolveLocale} from "../../../../i18n"
 import formatLocaleAmount from "../../../../utils/format-locale-amount"
-import {OrderWithInvoices} from "../index"
+import {InvoiceItemAdjustment, OrderWithInvoices} from "../index"
 import {addDays, formatDate} from "date-fns"
 import {ModuleOptions} from "../../../../modules/invoice/service"
 
@@ -444,7 +444,8 @@ const invoiceContent = async (
                   {amount: number; percentage?: number}
                 >()
                 for (const item of order.items ?? []) {
-                  for (const adj of (item.adjustments ?? []) as any[]) {
+                  for (const adj of (item.adjustments ??
+                    []) as InvoiceItemAdjustment[]) {
                     if (adj.code) {
                       const existing = adjMap.get(adj.code) ?? {amount: 0}
                       existing.amount += Number(adj.amount)
