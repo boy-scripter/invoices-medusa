@@ -1,4 +1,4 @@
-# @webbers/invoices-medusa
+# @developerx12/invoices-medusa
 
 A Medusa v2 plugin that automatically generates sequential PDF invoices for orders and credit notes for refunds. PDFs are uploaded to your private file storage bucket and served to customers and admins via presigned URLs.
 
@@ -10,7 +10,7 @@ A Medusa v2 plugin that automatically generates sequential PDF invoices for orde
 ## Installation
 
 ```bash
-pnpm add @webbers/invoices-medusa
+pnpm add @developerx12/invoices-medusa
 ```
 
 ## Configuration
@@ -23,7 +23,7 @@ import { defineConfig } from "@medusajs/framework/utils"
 export default defineConfig({
   plugins: [
     {
-      resolve: "@webbers/invoices-medusa",
+      resolve: "@developerx12/invoices-medusa",
       options: {
         // Optional: locale to fall back to when order.metadata.locale is absent
         // or not a supported value. Defaults to "nl".
@@ -185,7 +185,7 @@ import {
   createCreditInvoiceWorkflow,
   generateInvoicePdfWorkflow,
   refreshInvoicePdfWorkflow,
-} from "@webbers/invoices-medusa/workflows"
+} from "@developerx12/invoices-medusa/workflows"
 ```
 
 ### `createInvoiceWorkflow`
