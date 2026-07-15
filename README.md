@@ -106,7 +106,7 @@ export default defineConfig({
    - Generates the PDF and uploads it to the **private** storage bucket
    - Stores the file ID in `invoice.pdf_url`
 2. **Refund processed** — `createCreditInvoiceWorkflow` follows the same steps for a **credit** invoice, referencing the original debit invoice as its parent.
-3. **Download requested** — the API route resolves `invoice.pdf_url` to a presigned download URL via `fileModuleService.retrieveFile()` and redirects the client. Invoices without a stored PDF (created before this feature) are generated on-demand as a fallback.
+3. **Download requested** — the API route resolves `invoice.pdf_url` to a presigned download URL via `fileModuleService.retrieveFile()` and streams the PDF. Invoices without a stored PDF (created before this feature) are generated on-demand as a fallback.
 
 ### Invoice numbering
 
@@ -143,7 +143,13 @@ await orderModuleService.updateOrders(orderId, {
 GET /admin/orders/:id/invoice/:invoice_id
 ```
 
-Requires admin authentication. Redirects to a presigned download URL for the invoice PDF.
+Requires admin authentication. Streams the invoice PDF for download.
+
+```
+POST /admin/orders/:id/invoice/:invoice_id
+```
+
+Requires admin authentication. Regenerates the invoice PDF.
 
 ### Store
 
@@ -151,19 +157,42 @@ Requires admin authentication. Redirects to a presigned download URL for the inv
 GET /store/orders/:id/invoice
 ```
 
-Requires customer authentication. Returns the debit invoice PDF for the order. The order must belong to the authenticated customer.
+Requires customer authentication. Returns the **debit** invoice PDF for the order. The order must belong to the authenticated customer.
+
+```
+GET /store/orders/:id/credit-invoice
+```
+
+Requires customer authentication. Returns the **credit** invoice PDF for the order. Returns 404 if no credit invoice exists.
+
+## Admin widget
+
+The plugin includes an admin widget that displays on the order details page (`order.details.side.before` zone).
+
+**Features:**
+- Lists all invoices (debit and credit) for the order
+- Shows invoice type with colored badges (gray for debit, green for credit)
+- Download button fetches PDF via API and triggers browser download
+- Refresh button regenerates the invoice PDF
 
 ## Workflows
 
 The workflows can be called directly from your own subscribers, jobs, or API routes.
+
+```ts
+import {
+  createInvoiceWorkflow,
+  createCreditInvoiceWorkflow,
+  generateInvoicePdfWorkflow,
+  refreshInvoicePdfWorkflow,
+} from "@webbers/invoices-medusa/workflows"
+```
 
 ### `createInvoiceWorkflow`
 
 Creates a debit invoice, links it to an order, and generates + uploads the PDF.
 
 ```ts
-import { createInvoiceWorkflow } from "@webbers/invoices-medusa/workflows"
-
 await createInvoiceWorkflow(container).run({
   input: { order_id: "order_01J..." },
 })
@@ -174,8 +203,6 @@ await createInvoiceWorkflow(container).run({
 Creates a credit invoice for a refund.
 
 ```ts
-import { createCreditInvoiceWorkflow } from "@webbers/invoices-medusa/workflows"
-
 await createCreditInvoiceWorkflow(container).run({
   input: {
     order_id: "order_01J...",
@@ -190,8 +217,6 @@ await createCreditInvoiceWorkflow(container).run({
 Generates an invoice PDF on-demand and returns it as a base64 string. Useful for attaching to notification emails.
 
 ```ts
-import { generateInvoicePdfWorkflow } from "@webbers/invoices-medusa/workflows"
-
 const { result } = await generateInvoicePdfWorkflow(container).run({
   input: {
     order_id: "order_01J...",
@@ -201,6 +226,21 @@ const { result } = await generateInvoicePdfWorkflow(container).run({
 
 // result.fileName  — e.g. "invoice-42.pdf"
 // result.data      — base64-encoded PDF
+```
+
+### `refreshInvoicePdfWorkflow`
+
+Regenerates an existing invoice PDF and replaces the stored file.
+
+```ts
+const { result } = await refreshInvoicePdfWorkflow(container).run({
+  input: {
+    order_id: "order_01J...",
+    invoice_id: "inv_01J...",
+  },
+})
+
+// result.file_id — the new file ID
 ```
 
 ## Backfill script
