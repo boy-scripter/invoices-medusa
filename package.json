@@ -1,5 +1,5 @@
 {
-  "name": "@webbers/invoices-medusa",
+  "name": "@developerx12/invoices-medusa",
   "version": "1.0.6",
   "description": "Add invoices to Medusa v2",
   "author": "Webbers B.V. <development@webbers.com>",
@@ -34,9 +34,9 @@
     "medusa-webbers"
   ],
   "scripts": {
-    "build": "medusa plugin:build",
-    "dev": "medusa plugin:develop",
-    "prepublishOnly": "medusa plugin:build"
+    "build": "npx medusa plugin:build",
+    "dev": "npx medusa plugin:develop",
+    "prepublishOnly": "npx medusa plugin:build"
   },
   "devDependencies": {
     "@medusajs/admin-sdk": "^2.13.5",
