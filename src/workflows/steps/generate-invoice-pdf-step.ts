@@ -27,7 +27,7 @@ export const generateInvoicePdfStep = createStep(
     const pdfGenerator = new PdfGenerator()
 
     const order = await orderModuleService.retrieveOrder(order_id, {
-      select: ["*", "total", "items"],
+      select: ["*", "total", "items", "currency_code"],
     })
 
     const {
@@ -37,6 +37,7 @@ export const generateInvoicePdfStep = createStep(
         entity: "order",
         fields: [
           "id",
+          "currency_code",
           "shipping_address.*",
           "billing_address.*",
           "customer.groups.*",
