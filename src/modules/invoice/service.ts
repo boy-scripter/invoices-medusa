@@ -15,6 +15,8 @@ const addressFormatterSchema = z.custom<AddressFormatter>(
 
 export const moduleOptionsSchema = z.object({
   defaultLocale: z.enum(SUPPORTED_LOCALES).optional(),
+  captureOnPayment: z.boolean().default(true),
+  captureOnFulfillment: z.boolean().default(true),
   addressInfo: z.object({
     companyLogo: z.string().optional(),
     companyLogoWidth: z.number().optional(),
