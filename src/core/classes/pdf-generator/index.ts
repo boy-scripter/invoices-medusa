@@ -1,3 +1,4 @@
+import path from "path"
 import pdfmake from "pdfmake"
 import packingSlipContent from "./templates/packing-slip-content"
 import base from "./templates/base"
@@ -7,7 +8,18 @@ import {InvoiceDTO} from "../../../types"
 import {ModuleOptions} from "../../../modules/invoice/service"
 import creditInvoiceContent from "./templates/credit-invoice-content"
 
+const dejavuRoot = path.join(
+  path.dirname(require.resolve("dejavu-fonts-ttf/package.json")),
+  "ttf"
+)
+
 pdfmake.addFonts({
+  DejaVuSans: {
+    normal: path.join(dejavuRoot, "DejaVuSans.ttf"),
+    bold: path.join(dejavuRoot, "DejaVuSans-Bold.ttf"),
+    italics: path.join(dejavuRoot, "DejaVuSans-Oblique.ttf"),
+    bolditalics: path.join(dejavuRoot, "DejaVuSans-BoldOblique.ttf"),
+  },
   Helvetica: {
     normal: "Helvetica",
     bold: "Helvetica-Bold",

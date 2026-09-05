@@ -25,7 +25,7 @@ const base = (
     },
   },
   defaultStyle: {
-    font: "Helvetica",
+    font: "DejaVuSans",
     lineHeight: 1.25,
     columnGap: 20,
     fontSize: 10,
