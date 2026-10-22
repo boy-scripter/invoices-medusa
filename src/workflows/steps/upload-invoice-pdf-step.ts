@@ -1,7 +1,7 @@
 import {createStep, StepResponse} from "@medusajs/framework/workflows-sdk"
 import {INVOICE_MODULE} from "../../modules/invoice"
 import InvoiceModuleService from "../../modules/invoice/service"
-import {Modules} from "@medusajs/framework/utils"
+import {deleteStoredFile, storePrivatePdf} from "../../utils/store-invoice-file"
 
 type UploadInvoicePdfStepInput = {
   invoice_id: string
@@ -12,17 +12,9 @@ type UploadInvoicePdfStepInput = {
 export const uploadInvoicePdfStep = createStep(
   "upload-invoice-pdf-step",
   async ({invoice_id, file_name, data}: UploadInvoicePdfStepInput, {container}) => {
-    const fileModuleService = container.resolve(Modules.FILE)
     const invoiceModule: InvoiceModuleService = container.resolve(INVOICE_MODULE)
 
-    const [file] = await fileModuleService.createFiles([
-      {
-        filename: `invoices/${file_name}`,
-        mimeType: "application/pdf",
-        content: data,
-        access: "private",
-      },
-    ])
+    const file = await storePrivatePdf(container, `invoices/${file_name}`, data)
 
     await invoiceModule.updateInvoices({id: invoice_id, pdf_url: file.id})
 
@@ -35,10 +27,9 @@ export const uploadInvoicePdfStep = createStep(
     if (!rollbackData) return
     const {invoice_id, file_id} = rollbackData
 
-    const fileModuleService = container.resolve(Modules.FILE)
     const invoiceModule: InvoiceModuleService = container.resolve(INVOICE_MODULE)
 
-    await fileModuleService.deleteFiles([file_id])
     await invoiceModule.updateInvoices({id: invoice_id, pdf_url: null})
+    await deleteStoredFile(container, file_id)
   }
 )

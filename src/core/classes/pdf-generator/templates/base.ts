@@ -1,13 +1,41 @@
 import {Content, TDocumentDefinitions} from "pdfmake/interfaces"
 import {ModuleOptions} from "../../../../modules/invoice/service"
 
+const defaultHeader = (options: ModuleOptions): Content | undefined => {
+  if (options.header) {
+    return options.header
+  }
+  const logo = options.addressInfo.companyLogo?.trimStart()
+  if (!logo) {
+    return undefined
+  }
+  const width = options.addressInfo.companyLogoWidth ?? 110
+  if (logo.startsWith("<svg")) {
+    return {
+      svg: options.addressInfo.companyLogo,
+      width,
+      alignment: "left",
+      margin: [40, 20, 40, 0],
+    } as Content
+  }
+  if (logo.startsWith("data:")) {
+    return {
+      image: options.addressInfo.companyLogo,
+      width,
+      alignment: "left",
+      margin: [40, 20, 40, 0],
+    } as Content
+  }
+  return undefined
+}
+
 const base = (
   content: Content | Content[],
   options: ModuleOptions
 ): TDocumentDefinitions => ({
   pageMargins: [40, 60, 40, 54],
   content,
-  header: options.header,
+  header: defaultHeader(options),
   footer: options.footer,
   styles: {
     tableHeader: {

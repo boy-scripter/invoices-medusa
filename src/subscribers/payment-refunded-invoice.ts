@@ -3,15 +3,13 @@ import {
   ContainerRegistrationKeys,
   PaymentEvents,
 } from "@medusajs/framework/utils"
-import invoiceOrderLink from "../links/invoice-order"
 import {createCreditInvoiceWorkflow} from "../workflows/create-credit-invoice"
 import {RefundDTO} from "@medusajs/types"
-
-type InvoiceLink = {
-  invoice_id: string
-  created_at: Date
-  invoice?: {resource_id: string; type: string}
-}
+import {
+  findInvoiceByType,
+  getOrderInvoiceLinks,
+  hasInvoiceForResource,
+} from "../utils/order-invoices"
 
 export default async function paymentRefundedInvoiceHandler({
   event: {data},
@@ -40,20 +38,9 @@ export default async function paymentRefundedInvoiceHandler({
     // Only refund credit lines warrant a credit invoice.
     const refunds: RefundDTO[] = payment?.refunds ?? []
 
-    const {data: links} = await query.graph({
-      entity: invoiceOrderLink.entryPoint,
-      fields: [
-        "invoice_id",
-        "created_at",
-        "invoice.resource_id",
-        "invoice.type",
-      ],
-      filters: {order_id: orderId},
-    })
+    const links = await getOrderInvoiceLinks(container, orderId)
 
-    const parentInvoice: InvoiceLink | undefined = links.find(
-      (l: InvoiceLink) => l.invoice?.type === "debit"
-    )
+    const parentInvoice = findInvoiceByType(links, "debit")
 
     // A credit invoice is only created after the debit invoice has been created.
     if (!parentInvoice) {
@@ -61,24 +48,22 @@ export default async function paymentRefundedInvoiceHandler({
     }
 
     for (const refund of refunds) {
-      const alreadyExists = links.some(
-        (l: InvoiceLink) => l.invoice?.resource_id === refund.id
-      )
-
       // Create a credit invoice for each credit line that hasn't been invoiced yet.
-      if (!alreadyExists) {
-        await createCreditInvoiceWorkflow(container).run({
-          input: {
-            order_id: orderId,
-            parent_invoice_id: parentInvoice.invoice_id,
-            resource_id: refund.id,
-          },
-        })
-
-        logger.info(
-          `[invoice] Created credit invoice(s) for order ${orderId} - ${refund.id}`
-        )
+      if (hasInvoiceForResource(links, refund.id)) {
+        continue
       }
+
+      await createCreditInvoiceWorkflow(container).run({
+        input: {
+          order_id: orderId,
+          parent_invoice_id: parentInvoice.invoice_id,
+          resource_id: refund.id,
+        },
+      })
+
+      logger.info(
+        `[invoice] Created credit invoice(s) for order ${orderId} - ${refund.id}`
+      )
     }
   } catch (error) {
     logger.error(

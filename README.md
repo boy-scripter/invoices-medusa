@@ -15,7 +15,8 @@ pnpm add @developerx12/invoices-medusa
 
 ## Configuration
 
-Register the plugin in `medusa-config.ts`:
+Register the plugin in `medusa-config.ts`. Every company value falls back
+to an environment variable, so the minimal setup is:
 
 ```ts
 import { defineConfig } from "@medusajs/framework/utils"
@@ -25,26 +26,59 @@ export default defineConfig({
     {
       resolve: "@developerx12/invoices-medusa",
       options: {
+        // Optional: accent colors used in table headers
+        colors: {
+          background: "#004534", // header cell fill (default: #000)
+          text: "#ffffff",       // header cell text (default: #fff)
+        },
+      },
+    },
+  ],
+})
+```
+
+Explicit options always override the environment. To override a value, pass
+it as before:
+
+```ts
+export default defineConfig({
+  plugins: [
+    {
+      resolve: "@developerx12/invoices-medusa",
+      options: {
         // Optional: locale to fall back to when order.metadata.locale is absent
-        // or not a supported value. Defaults to "nl".
+        // or not a supported value. Defaults to "en".
+        // Env fallback: INVOICE_DEFAULT_LOCALE
         defaultLocale: "en",
 
         addressInfo: {
-          // Optional: SVG string or base64 data URL shown in the default header
+          // Optional: inline SVG string or base64 data URL rendered as the
+          // default page header when `header` is not provided.
+          // Env fallback: COMPANY_LOGO
           companyLogo: "<svg>...</svg>",
           // Optional: rendered width of the logo in points (default: 110)
+          // Env fallback: COMPANY_LOGO_WIDTH
           companyLogoWidth: 110,
 
+          // Env fallback: COMPANY_NAME
           companyName: "Acme B.V.",
 
           // Receives the i18n countries object for the resolved locale so you
           // can include a translated country name in the address block.
+          // Default: built from COMPANY_ADDRESS_LINE_1, COMPANY_ADDRESS_LINE_2,
+          // COMPANY_POSTAL_CODE and COMPANY_CITY.
           address: (countries) =>
             `Streetname 1\n1234 AB Amsterdam, ${countries.nl}`,
 
+          // Optional (e.g. not used in India).
+          // Env fallback: COMPANY_COC_NUMBER
           cocNumber: "12345678",
+          // Env fallback: COMPANY_GSTIN
           vatNumber: "NL123456789B01",
+          // Optional: only shown on tax-exclusive orders.
+          // Env fallback: COMPANY_IBAN
           iban: "NL00BANK0123456789",
+          // Env fallback: COMPANY_EMAIL
           email: "billing@example.com",
         },
 
@@ -82,15 +116,15 @@ export default defineConfig({
 
 | Option | Type | Required | Description |
 |---|---|---|---|
-| `defaultLocale` | `Locale` | No | Fallback locale when `order.metadata.locale` is absent or invalid. Defaults to `"nl"`. |
-| `addressInfo.companyName` | `string` | Yes | Company name shown on the invoice. |
-| `addressInfo.address` | `(countries: Record<string, string>) => string` | Yes | Function returning the company address. Receives the i18n country name map for the resolved locale. |
-| `addressInfo.cocNumber` | `string` | Yes | Chamber of Commerce number. |
-| `addressInfo.vatNumber` | `string` | Yes | VAT registration number. |
-| `addressInfo.iban` | `string` | Yes | Bank account number. |
-| `addressInfo.email` | `string` | Yes | Billing contact e-mail. |
-| `addressInfo.companyLogo` | `string` | No | SVG string or data URL used in the default header. |
-| `addressInfo.companyLogoWidth` | `number` | No | Rendered logo width in points. |
+| `defaultLocale` | `Locale` | No | Fallback locale when `order.metadata.locale` is absent or invalid. Env: `INVOICE_DEFAULT_LOCALE`. Defaults to `"en"`. |
+| `addressInfo.companyName` | `string` | No | Company name shown on the invoice. Env: `COMPANY_NAME`. |
+| `addressInfo.address` | `(countries: Record<string, string>) => string` | No | Function returning the company address. Receives the i18n country name map for the resolved locale. Default: built from `COMPANY_ADDRESS_LINE_1`, `COMPANY_ADDRESS_LINE_2`, `COMPANY_POSTAL_CODE`, `COMPANY_CITY`. |
+| `addressInfo.cocNumber` | `string` | No | Chamber of Commerce number. Env: `COMPANY_COC_NUMBER`. Omit/empty hides the row (e.g. India). |
+| `addressInfo.vatNumber` | `string` | No | VAT registration number (GSTIN). Env: `COMPANY_GSTIN`. |
+| `addressInfo.iban` | `string` | No | Bank account number, shown on tax-exclusive orders only. Env: `COMPANY_IBAN`. |
+| `addressInfo.email` | `string` | No | Billing contact e-mail. Env: `COMPANY_EMAIL`. |
+| `addressInfo.companyLogo` | `string` | No | Inline SVG string or data URL rendered as the default page header when `header` is not set. Env: `COMPANY_LOGO`. Remote URLs are ignored. |
+| `addressInfo.companyLogoWidth` | `number` | No | Rendered logo width in points. Env: `COMPANY_LOGO_WIDTH`. |
 | `colors.background` | `string` | No | Table header fill color (CSS hex). |
 | `colors.text` | `string` | No | Table header text color (CSS hex). |
 | `header` | `Content` | No | pdfmake content block rendered as page header. Replaces the default logo header. |
@@ -151,6 +185,32 @@ POST /admin/orders/:id/invoice/:invoice_id
 
 Requires admin authentication. Regenerates the invoice PDF.
 
+```
+POST /admin/orders/:id/invoice
+```
+
+Requires admin authentication. Manually creates a new (debit) invoice for the order, including the PDF. Useful when the automatic invoice creation is disabled or did not run. The invoice is created by the same `createInvoiceWorkflow` that the subscribers use. An order can only have one debit invoice, so the request is rejected when the order already has one.
+
+```
+POST /admin/orders/:id/credit-invoice
+```
+
+Requires admin authentication. Manually creates a (credit) invoice for the order. A credit invoice is always based on a refund:
+
+- `refund_id` (optional): the refund to credit. When omitted, the most recent refund of the order is used.
+- When the order has no debit invoice yet, one is created first so the credit invoice has a parent invoice to reference.
+- Fails when a credit invoice already exists for the selected refund.
+
+```json
+{ "refund_id": "ref_123" }
+```
+
+```
+POST /admin/orders/:id/invoice/:invoice_id/upload
+```
+
+Requires admin authentication. Uploads a PDF for an existing invoice. The uploaded file **replaces** the generated PDF of the invoice — nothing else about the invoice changes. The request must be `multipart/form-data` with a `file` field (PDF only, max 20MB). The file is stored as a private file in the file module, exactly like the generated PDFs.
+
 ### Store
 
 ```
@@ -173,7 +233,10 @@ The plugin includes an admin widget that displays on the order details page (`or
 - Lists all invoices (debit and credit) for the order
 - Shows invoice type with colored badges (gray for debit, green for credit)
 - Download button fetches PDF via API and triggers browser download
-- Refresh button regenerates the invoice PDF
+- Refresh button regenerates the invoice PDF from the order
+- Upload button replaces the PDF of an invoice with an uploaded PDF file
+- **Generate invoice** button creates the invoice for the order manually. An order can only have one debit invoice, so the button is disabled when the order already has one.
+- **Credit invoice** button creates a credit invoice for one of the refunds of the order
 
 ## Workflows
 
@@ -185,6 +248,7 @@ import {
   createCreditInvoiceWorkflow,
   generateInvoicePdfWorkflow,
   refreshInvoicePdfWorkflow,
+  uploadInvoicePdfWorkflow,
 } from "@developerx12/invoices-medusa/workflows"
 ```
 
@@ -237,6 +301,22 @@ const { result } = await refreshInvoicePdfWorkflow(container).run({
   input: {
     order_id: "order_01J...",
     invoice_id: "inv_01J...",
+  },
+})
+
+// result.file_id — the new file ID
+```
+
+### `uploadInvoicePdfWorkflow`
+
+Replaces the PDF of an existing invoice with an externally provided file (e.g. a manually uploaded invoice document).
+
+```ts
+const { result } = await uploadInvoicePdfWorkflow(container).run({
+  input: {
+    invoice_id: "inv_01J...",
+    file_name: "invoice-42.pdf",
+    data: "<base64 encoded pdf>", // base64-encoded file content
   },
 })
 

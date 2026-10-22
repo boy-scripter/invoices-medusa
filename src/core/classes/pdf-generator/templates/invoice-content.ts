@@ -107,7 +107,7 @@ const invoiceContent = async (
               key: t.invoice.email,
               value: options.addressInfo.email,
             },
-          ].map(({key, value, valueProps}) => ({
+          ].filter(({value}) => value !== undefined && value !== "").map(({key, value, valueProps}) => ({
             columns: [
               {
                 text: key,
