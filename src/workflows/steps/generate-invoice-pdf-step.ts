@@ -52,7 +52,7 @@ export const generateInvoicePdfStep = createStep(
           "shipping_methods.*",
           "shipping_methods.tax_lines.*",
           "invoices.*",
-          "invoices.parent_invoice.display_id",
+          "invoices.parent_invoice.*",
           "payment_collections.*",
           "payment_collections.payments.*",
           "payment_collections.payments.refunds.*",

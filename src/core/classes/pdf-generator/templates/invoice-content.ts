@@ -139,7 +139,7 @@ const invoiceContent = async (
               margin: [0, 10, 0, 2],
             },
             {
-              text: `#${invoice.display_id.toString().padStart(5, "0")}`,
+              text: `#${invoice.display_id?.toString()?.padStart(5, "0") || invoice.id}`,
             } as Content,
           ],
         },
@@ -185,7 +185,7 @@ const invoiceContent = async (
               margin: [0, 10, 0, 2],
             },
             {
-              text: `#${order.display_id.toString().padStart(5, "0")}`,
+              text: `#${order.display_id?.toString()?.padStart(5, "0") || order.id}`,
             },
           ],
         },

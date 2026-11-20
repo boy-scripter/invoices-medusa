@@ -21,5 +21,10 @@ export default defineMiddlewares({
       matcher: "/admin/orders/:id/invoice/:invoice_id/upload",
       middlewares: [upload.single("file")],
     },
+    {
+      methods: ["POST"],
+      matcher: "/admin/orders/:id/invoice/upload-new",
+      middlewares: [upload.single("file")],
+    },
   ],
 })

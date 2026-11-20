@@ -204,7 +204,7 @@ const invoiceContent = async (
             {
               text: [
                 {
-                  text: `${t.invoice.creditInvoiceDescription} #${invoice.parent_invoice.display_id.toString().padStart(5, "0")}`,
+                  text: `${t.invoice.creditInvoiceDescription} #${invoice.parent_invoice?.display_id?.toString().padStart(5, "0") || invoice.parent_invoice?.id || "N/A"}`,
                 },
                 ...(refund.note ? [{text: `\n- ${refund.note}`}] : []),
               ],

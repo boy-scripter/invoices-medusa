@@ -17,8 +17,6 @@ import {
   ArrowDownTray,
   ArrowPath,
   ArrowUpTray,
-  DocumentText,
-  ReceiptPercent,
 } from "@medusajs/icons"
 
 type Invoice = {
@@ -40,7 +38,7 @@ type OrderWithInvoices = AdminOrder & {
 const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const uploadTargetRef = useRef<string | null>(null)
+  const uploadTargetRef = useRef<{invoiceId?: string; type?: "debit" | "credit"} | null>(null)
 
   const {
     data: expandedOrder,
@@ -100,40 +98,52 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
     },
   })
 
-  const generateInvoice = useMutation({
-    mutationFn: () =>
-      sdk.client.fetch(`/admin/orders/${order.id}/invoice`, {
-        method: "POST",
-      }),
-    onSuccess: (result: any) => {
-      toast.success(`Invoice #${result?.display_id} generated`)
-      queryClient.invalidateQueries({queryKey: [order.id, "order_invoices"]})
-    },
-    onError: (error: any) => {
-      toast.error(
-        error?.message ??
-          error?.response?.data?.message ??
-          "Failed to generate invoice"
-      )
-    },
-  })
+  const uploadNewInvoice = useMutation({
+    mutationFn: async ({file, type}: {file: File; type: "debit" | "credit"}) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", type)
 
-  const generateCreditInvoice = useMutation({
-    mutationFn: (refundId?: string) =>
-      sdk.client.fetch(`/admin/orders/${order.id}/credit-invoice`, {
-        method: "POST",
-        body: refundId ? {refund_id: refundId} : {},
-      }),
-    onSuccess: (result: any) => {
-      toast.success(`Credit invoice #${result?.display_id} generated`)
+      const headers: Record<string, string> = {}
+
+      try {
+        const token = await sdk.client.getToken()
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
+        }
+      } catch {
+        // Fall back to the session cookie
+      }
+
+      const response = await fetch(
+        `/admin/orders/${order.id}/invoice/upload-new`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+          headers,
+        }
+      )
+
+      if (!response.ok) {
+        let message = "Failed to upload invoice"
+        try {
+          const body = await response.json()
+          message = body?.message ?? message
+        } catch {
+          // Keep the default message
+        }
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      toast.success("Invoice uploaded successfully")
       queryClient.invalidateQueries({queryKey: [order.id, "order_invoices"]})
     },
     onError: (error: any) => {
-      toast.error(
-        error?.message ??
-          error?.response?.data?.message ??
-          "Failed to generate credit invoice"
-      )
+      toast.error(error?.message ?? "Failed to upload invoice")
     },
   })
 
@@ -221,8 +231,8 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
     }
   }
 
-  const openFilePicker = (invoiceId: string) => {
-    uploadTargetRef.current = invoiceId
+  const openFilePicker = (invoiceId?: string, type?: "debit" | "credit") => {
+    uploadTargetRef.current = {invoiceId, type}
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
       fileInputRef.current.click()
@@ -231,9 +241,9 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
 
   const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    const invoiceId = uploadTargetRef.current
+    const target = uploadTargetRef.current
 
-    if (!file || !invoiceId) {
+    if (!file || !target) {
       return
     }
 
@@ -242,7 +252,11 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
       return
     }
 
-    uploadInvoice.mutate({invoiceId, file})
+    if (target.invoiceId) {
+      uploadInvoice.mutate({invoiceId: target.invoiceId, file})
+    } else if (target.type) {
+      uploadNewInvoice.mutate({file, type: target.type})
+    }
   }
 
   return (
@@ -256,30 +270,30 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
             <Button
               size="small"
               variant="secondary"
-              isLoading={generateInvoice.isPending}
+              isLoading={uploadNewInvoice.isPending}
               disabled={hasDebitInvoice}
-              onClick={() => generateInvoice.mutate()}
+              onClick={() => openFilePicker(undefined, "debit")}
             >
-              <DocumentText />
-              Generate invoice
+              <ArrowUpTray />
+              Upload invoice
             </Button>
             <DropdownMenu>
               <DropdownMenu.Trigger asChild>
                 <Button
                   size="small"
                   variant="secondary"
-                  isLoading={generateCreditInvoice.isPending}
+                  isLoading={uploadNewInvoice.isPending}
                   disabled={!refunds.length}
                 >
-                  <ReceiptPercent />
-                  Credit invoice
+                  <ArrowUpTray />
+                  Upload credit invoice
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end">
                 {refunds.map((refund) => (
                   <DropdownMenu.Item
                     key={refund.id}
-                    onClick={() => generateCreditInvoice.mutate(refund.id)}
+                    onClick={() => openFilePicker(undefined, "credit")}
                   >
                     {formatAmount(refund.amount)}
                     {refund.note ? ` - ${refund.note}` : ""}
@@ -297,7 +311,13 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
                 : "A credit invoice is created from a refund. This order has no refunds yet."}
             </Text>
           </div>
-        ) : null}
+        ) : (
+          <div className="px-6 py-4">
+            <Text size="small" className="text-ui-fg-muted">
+              Select a refund amount to upload a credit invoice.
+            </Text>
+          </div>
+        )}
         <div className="text-ui-fg-subtle px-6 py-4">
           {isLoading ? (
             <Text size="small" className="text-ui-fg-muted">
