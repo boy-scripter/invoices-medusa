@@ -76,13 +76,10 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
       displayId: string
       type: string
     }) => {
-      const response = await fetch(
+      const response = await sdk.client.fetch<Response>(
         `/admin/orders/${order.id}/invoice/${invoiceId}`,
-        { credentials: "include" }
+        {headers: {accept: null}}
       )
-      if (!response.ok) {
-        throw new Error("Download failed")
-      }
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -104,39 +101,15 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
       formData.append("file", file)
       formData.append("type", type)
 
-      const headers: Record<string, string> = {}
-
-      try {
-        const token = await sdk.client.getToken()
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-      } catch {
-        // Fall back to the session cookie
-      }
-
-      const response = await fetch(
+      return await sdk.client.fetch(
         `/admin/orders/${order.id}/invoice/upload-new`,
         {
           method: "POST",
           body: formData,
-          credentials: "include",
-          headers,
+          // Let the browser set the multipart/form-data boundary.
+          headers: {"content-type": null},
         }
       )
-
-      if (!response.ok) {
-        let message = "Failed to upload invoice"
-        try {
-          const body = await response.json()
-          message = body?.message ?? message
-        } catch {
-          // Keep the default message
-        }
-        throw new Error(message)
-      }
-
-      return response.json()
     },
     onSuccess: () => {
       toast.success("Invoice uploaded successfully")
@@ -158,39 +131,15 @@ const OrderInvoiceWidget = ({data: order}: DetailWidgetProps<AdminOrder>) => {
       const formData = new FormData()
       formData.append("file", file)
 
-      const headers: Record<string, string> = {}
-
-      try {
-        const token = await sdk.client.getToken()
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-      } catch {
-        // Fall back to the session cookie
-      }
-
-      const response = await fetch(
+      return await sdk.client.fetch(
         `/admin/orders/${order.id}/invoice/${invoiceId}/upload`,
         {
           method: "POST",
           body: formData,
-          credentials: "include",
-          headers,
+          // Let the browser set the multipart/form-data boundary.
+          headers: {"content-type": null},
         }
       )
-
-      if (!response.ok) {
-        let message = "Failed to upload invoice PDF"
-        try {
-          const body = await response.json()
-          message = body?.message ?? message
-        } catch {
-          // Keep the default message
-        }
-        throw new Error(message)
-      }
-
-      return response.json()
     },
     onSuccess: () => {
       toast.success("Invoice PDF uploaded")

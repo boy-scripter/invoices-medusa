@@ -1,6 +1,6 @@
 {
   "name": "@developerx12/invoices-medusa",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Add invoices to Medusa v2",
   "license": "MIT",
   "files": [
